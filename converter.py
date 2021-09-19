@@ -1,10 +1,23 @@
 from PIL import Image, ImageColor, ImageFilter
 from math import sqrt
 import os
+import json
 
 
-INPUT = 'Input'
-OUTPUT = 'Output'
+INPUT, OUTPUT = None, None
+
+
+def load_settings():
+    global INPUT, OUTPUT
+    with open('Config.json', 'r') as config:
+        data = json.load(config)
+        INPUT = data["settings"]["input_dir"]
+        OUTPUT = data["settings"]["output_dir"]
+        colors = []
+        for hex_color in data["palettes"][data["settings"]["palette"]]:
+            color = ImageColor.getcolor(hex_color, "RGB")
+            colors.append(color)
+        return data["settings"], colors
 
 
 def get_filenames():
@@ -14,17 +27,6 @@ def get_filenames():
         if os.path.isfile(f'{INPUT}/{item}'):
             filenames.append(item)
     return filenames
-
-
-def load_palette():
-    with open('Palette.txt', 'r') as palette_file:
-        lines = palette_file.readlines()
-        colors = []
-        for line in lines:
-            hex_color = line[:7]
-            color = ImageColor.getcolor(hex_color, "RGB")
-            colors.append(color)
-        return colors
 
 
 def get_color(src_color, colors):
@@ -131,31 +133,50 @@ def match_colors(img, pixels, colors, filename='current image'):
     return result_img, res_pixels
 
 
-def process_image(filename, colors, blur=False, blur_radius=3, blur_offset=10):
+def process_image(filename, colors, palette=None, blur=True, blur_radius=3, blur_offset=10, debug=True):
+    print(f'Image {filename} processing started!')
+    if blur:
+        print(f'(palette: {palette}, blur: {blur}, blur_radius: {blur_radius}, blur_offset: {blur_offset}, '
+              f'output: /{OUTPUT}, debug: {debug})')
+    else:
+        print(f'(palette: {palette}, blur: {blur}, output: /{OUTPUT}, debug: {debug})')
+
     img_file = Image.open(f'{INPUT}/{filename}')
     img = Image.new("RGB", img_file.size, (255, 255, 255))
     img.paste(img_file)  # 3 is the alpha channel
     pixels = img.load()
 
     result_img, res_pixels = match_colors(img, pixels, colors, filename=filename)
-    # result_img.save(f'{OUTPUT}/1.png')
+    if debug:
+        result_img.save(f'{OUTPUT}/{filename}-color_match-(1).png')
     if blur:
         blur_map = create_blur_map(result_img, res_pixels, blur_radius=blur_radius,
                                    blur_offset=blur_offset, filename=filename)
-        # blur_map.save(f'{OUTPUT}/2.png')
+        if debug:
+            blur_map.save(f'{OUTPUT}/{filename}-blur_map-(2).png')
         result_img = apply_blur(result_img, blur_map, blur_radius=blur_radius)
-        # result_img.save(f'{OUTPUT}/3.png')
+        if debug:
+            result_img.save(f'{OUTPUT}/{filename}-blurred_colors-(3).png')
     result_img = tweak_image_brightness(img, result_img, pixels, res_pixels, filename=filename)
     return result_img
 
 
 def main():
+    settings, colors = load_settings()
     filenames = get_filenames()
-    colors = load_palette()
     for filename in filenames:
-        img = process_image(filename, colors)
+        img = process_image(
+            filename,
+            colors,
+            palette=settings["palette"],
+            blur=settings["blur"],
+            blur_radius=settings["blur_radius"],
+            blur_offset=settings["blur_offset"],
+            debug=settings["debug"],
+        )
         print(f'{filename} processing complete!')
-        img.save(f'{OUTPUT}/{filename}')
+        print(f'Image {settings["palette"]}-{filename} will be saved in /{OUTPUT}')
+        img.save(f'{OUTPUT}/{settings["palette"]}-{filename}', format='PNG')
 
 
 if __name__ == '__main__':
