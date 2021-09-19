@@ -29,13 +29,16 @@ def get_filenames():
     return filenames
 
 
-def get_color(src_color, colors):
+def get_color(src_color, colors, quadratic_color_distance=False):
     src_color = src_color[:3]
     sr, sg, sb = src_color
     colors_diffs = []
     for dst_color in colors:
         dr, dg, db = dst_color
-        dist = sqrt(abs(sr - dr) ** 2 + abs(sg - dg) ** 2 + abs(sb - db) ** 2)
+        if quadratic_color_distance:
+            dist = sqrt(abs(sr - dr) ** 2 + abs(sg - dg) ** 2 + abs(sb - db) ** 2)
+        else:
+            dist = abs(sr - dr) + abs(sg - dg) + abs(sb - db)
         colors_diffs.append((dist, dst_color))
     fit_color = min(colors_diffs)[1]
     return fit_color
@@ -46,14 +49,16 @@ def get_brightness(color):
     return 0.2126 * r + 0.7152 * g + 0.0722 * b
 
 
-def tweak_pixel_brightness(src_color, fit_color):
+def tweak_pixel_brightness(src_color, fit_color, brightness_steps=False):
     src_color = src_color[:3]
     sr, sg, sb = src_color
     rr, rg, rb = fit_color
     src_luminance = get_brightness((sr, sg, sb))
     res_luminance = get_brightness((rr, rg, rb))
-    max_factor = 255 / max(rr, rg, rb)
-    factor = min(src_luminance / res_luminance, max_factor)
+    factor = src_luminance / res_luminance
+    if brightness_steps:
+        factor = round(factor, 1)
+
     rr = round(rr * factor)
     rg = round(rg * factor)
     rb = round(rb * factor)
@@ -63,7 +68,7 @@ def tweak_pixel_brightness(src_color, fit_color):
     return rr, rg, rb
 
 
-def tweak_image_brightness(img, result_img, pixels, res_pixels, filename='current image'):
+def tweak_image_brightness(img, result_img, pixels, res_pixels, filename='current image', brightness_steps=False):
     last_msg_val = 0
     for i in range(img.size[0]):
         progress_val = round((i + 1) / img.size[0] * 100)
@@ -73,7 +78,7 @@ def tweak_image_brightness(img, result_img, pixels, res_pixels, filename='curren
         for j in range(img.size[1]):
             src_color = pixels[i, j]
             fit_color = res_pixels[i, j]
-            res_pixels[i, j] = tweak_pixel_brightness(src_color, fit_color)
+            res_pixels[i, j] = tweak_pixel_brightness(src_color, fit_color, brightness_steps=brightness_steps)
     return result_img
 
 
@@ -118,7 +123,7 @@ def apply_blur(img, blur_map, blur_radius):
     return img
 
 
-def match_colors(img, pixels, colors, filename='current image'):
+def match_colors(img, pixels, colors, filename='current image', quadratic_color_distance=False):
     result_img = Image.new('RGB', img.size)
     res_pixels = result_img.load()
     last_msg_val = 0
@@ -129,24 +134,42 @@ def match_colors(img, pixels, colors, filename='current image'):
             print(f'Color matching for {filename} is {progress_val}% done')
         for j in range(img.size[1]):
             src_color = pixels[i, j]
-            res_pixels[i, j] = get_color(src_color, colors)
+            res_pixels[i, j] = get_color(src_color, colors, quadratic_color_distance=quadratic_color_distance)
     return result_img, res_pixels
 
 
-def process_image(filename, colors, palette=None, blur=True, blur_radius=3, blur_offset=10, debug=True):
+def process_image(filename,
+                  colors,
+                  palette=None,
+                  brightness_tweak=True,
+                  quadratic_color_distance=False,
+                  blur=True,
+                  blur_radius=3,
+                  blur_offset=10,
+                  brightness_steps=False,
+                  debug=True):
+    print('=' * 20)
     print(f'Image {filename} processing started!')
+    print(f'palette: {palette}')
+    print(f'brightness tweak: {brightness_tweak}')
+    print(f'quadratic color distance: {quadratic_color_distance}')
+    print(f'blur: {blur}')
     if blur:
-        print(f'(palette: {palette}, blur: {blur}, blur_radius: {blur_radius}, blur_offset: {blur_offset}, '
-              f'output: /{OUTPUT}, debug: {debug})')
-    else:
-        print(f'(palette: {palette}, blur: {blur}, output: /{OUTPUT}, debug: {debug})')
+        print(f'blur radius: {blur_radius}')
+        print(f'blur offset: {blur_offset}')
+    print(f'brightness steps: {brightness_steps}')
+    print(f'input: /{INPUT}')
+    print(f'output: /{OUTPUT}')
+    print(f'debug: {debug}')
+    print('=' * 20)
 
     img_file = Image.open(f'{INPUT}/{filename}')
     img = Image.new("RGB", img_file.size, (255, 255, 255))
     img.paste(img_file)  # 3 is the alpha channel
     pixels = img.load()
 
-    result_img, res_pixels = match_colors(img, pixels, colors, filename=filename)
+    result_img, res_pixels = match_colors(img, pixels, colors, filename=filename,
+                                          quadratic_color_distance=quadratic_color_distance)
     if debug:
         result_img.save(f'{OUTPUT}/{filename}-color_match-(1).png')
     if blur:
@@ -157,7 +180,9 @@ def process_image(filename, colors, palette=None, blur=True, blur_radius=3, blur
         result_img = apply_blur(result_img, blur_map, blur_radius=blur_radius)
         if debug:
             result_img.save(f'{OUTPUT}/{filename}-blurred_colors-(3).png')
-    result_img = tweak_image_brightness(img, result_img, pixels, res_pixels, filename=filename)
+    if brightness_tweak:
+        result_img = tweak_image_brightness(img, result_img, pixels, res_pixels,
+                                            filename=filename, brightness_steps=brightness_steps)
     return result_img
 
 
@@ -169,9 +194,12 @@ def main():
             filename,
             colors,
             palette=settings["palette"],
+            brightness_tweak=settings["brightness_tweak"],
+            quadratic_color_distance=settings["quadratic_color_distance"],
             blur=settings["blur"],
             blur_radius=settings["blur_radius"],
             blur_offset=settings["blur_offset"],
+            brightness_steps=settings["brightness_steps"],
             debug=settings["debug"],
         )
         print(f'{filename} processing complete!')
