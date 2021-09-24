@@ -30,6 +30,7 @@ def get_filenames():
 
 
 def get_color(src_color, colors, quadratic_color_distance=False):
+    alpha = src_color[3]
     src_color = src_color[:3]
     sr, sg, sb = src_color
     colors_diffs = []
@@ -40,24 +41,33 @@ def get_color(src_color, colors, quadratic_color_distance=False):
         else:
             dist = abs(sr - dr) + abs(sg - dg) + abs(sb - db)
         colors_diffs.append((dist, dst_color))
-    fit_color = min(colors_diffs)[1]
-    return fit_color
+    fit_color = list(min(colors_diffs)[1])
+    fit_color.append(alpha)
+    return tuple(fit_color)
 
 
 def get_brightness(color):
+    alpha = 1
+    if len(color) > 3:
+        alpha = color[3] / 255
+    color = color[:3]
     r, g, b = color
-    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+    return (0.2126 * r + 0.7152 * g + 0.0722 * b) * alpha
 
 
 def tweak_pixel_brightness(src_color, fit_color, brightness_steps=False):
-    src_color = src_color[:3]
-    sr, sg, sb = src_color
-    rr, rg, rb = fit_color
-    src_luminance = get_brightness((sr, sg, sb))
-    res_luminance = get_brightness((rr, rg, rb))
+    src_luminance = get_brightness((src_color))
+    res_luminance = get_brightness((fit_color))
+    res_luminance = max(0.0001, res_luminance)
     factor = src_luminance / res_luminance
     if brightness_steps:
         factor = round(factor, 1)
+
+    alpha = None
+    if len(fit_color) > 3:
+        alpha = fit_color[3]
+        fit_color = fit_color[:3]
+    rr, rg, rb = fit_color
 
     rr = round(rr * factor)
     rg = round(rg * factor)
@@ -65,6 +75,8 @@ def tweak_pixel_brightness(src_color, fit_color, brightness_steps=False):
     rr = min(255, (max(0, rr)))
     rg = min(255, (max(0, rg)))
     rb = min(255, (max(0, rb)))
+    if alpha is not None:
+        return rr, rg, rb, alpha
     return rr, rg, rb
 
 
@@ -124,7 +136,7 @@ def apply_blur(img, blur_map, blur_radius):
 
 
 def match_colors(img, pixels, colors, filename='current image', quadratic_color_distance=False):
-    result_img = Image.new('RGB', img.size)
+    result_img = Image.new('RGBA', img.size)
     res_pixels = result_img.load()
     last_msg_val = 0
     for i in range(img.size[0]):
@@ -164,8 +176,8 @@ def process_image(filename,
     print('=' * 20)
 
     img_file = Image.open(f'{INPUT}/{filename}')
-    img = Image.new("RGB", img_file.size, (255, 255, 255))
-    img.paste(img_file)  # 3 is the alpha channel
+    img = Image.new("RGBA", img_file.size, (255, 255, 255, 0))
+    img.paste(img_file)
     pixels = img.load()
 
     result_img, res_pixels = match_colors(img, pixels, colors, filename=filename,

@@ -4,7 +4,7 @@
     "brightness_tweak": true,
     "brightness_steps": false,
     "quadratic_color_distance": false,
-    "blur": true,
+    "blur": false,
     "blur_radius": 3,
     "blur_offset": 10,
     "debug": false,
