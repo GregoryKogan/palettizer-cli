@@ -2,6 +2,7 @@ from PIL import Image, ImageColor, ImageFilter
 from math import sqrt
 import os
 import json
+from tqdm import trange
 
 
 INPUT, OUTPUT = None, None
@@ -81,12 +82,7 @@ def tweak_pixel_brightness(src_color, fit_color, brightness_steps=False):
 
 
 def tweak_image_brightness(img, result_img, pixels, res_pixels, filename='current image', brightness_steps=False):
-    last_msg_val = 0
-    for i in range(img.size[0]):
-        progress_val = round((i + 1) / img.size[0] * 100)
-        if progress_val != last_msg_val and progress_val % 5 == 0:
-            last_msg_val = progress_val
-            print(f'Brightness tweaking for {filename} is {progress_val}% done')
+    for i in trange(img.size[0], desc=f'Brightness tweaking for {filename}', colour='blue'):
         for j in range(img.size[1]):
             src_color = pixels[i, j]
             fit_color = res_pixels[i, j]
@@ -104,12 +100,7 @@ def create_blur_map(img, pixels, blur_radius, blur_offset, filename='current ima
         [-1, -1, -1],
     ]
 
-    last_msg_val = 0
-    for i in range(blur_radius, img.size[0] - blur_radius):
-        progress_val = round((i + 1) / img.size[0] * 100)
-        if progress_val != last_msg_val and progress_val % 5 == 0:
-            last_msg_val = progress_val
-            print(f'Blur map for {filename} is {progress_val}% done')
+    for i in trange(blur_radius, img.size[0] - blur_radius, desc=f'Blur map for {filename}', colour='blue'):
         for j in range(blur_radius, img.size[1] - blur_radius):
             blur_val = 0
             blur_val += get_brightness(pixels[i - 1, j - 1]) * conv_filter[0][0]
@@ -138,12 +129,7 @@ def apply_blur(img, blur_map, blur_radius):
 def match_colors(img, pixels, colors, filename='current image', quadratic_color_distance=False):
     result_img = Image.new('RGBA', img.size)
     res_pixels = result_img.load()
-    last_msg_val = 0
-    for i in range(img.size[0]):
-        progress_val = round((i + 1) / img.size[0] * 100)
-        if progress_val != last_msg_val and progress_val % 5 == 0:
-            last_msg_val = progress_val
-            print(f'Color matching for {filename} is {progress_val}% done')
+    for i in trange(img.size[0], desc=f'Color matching for {filename}', colour='blue'):
         for j in range(img.size[1]):
             src_color = pixels[i, j]
             res_pixels[i, j] = get_color(src_color, colors, quadratic_color_distance=quadratic_color_distance)

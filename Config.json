@@ -1,10 +1,10 @@
 {
   "settings": {
-    "palette": "Dracula",
+    "palette": "Tokyo Night",
     "brightness_tweak": true,
     "brightness_steps": false,
     "quadratic_color_distance": false,
-    "blur": false,
+    "blur": true,
     "blur_radius": 3,
     "blur_offset": 10,
     "debug": false,
