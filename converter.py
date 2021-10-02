@@ -81,8 +81,9 @@ def tweak_pixel_brightness(src_color, fit_color, brightness_steps=False):
     return rr, rg, rb
 
 
-def tweak_image_brightness(img, result_img, pixels, res_pixels, filename='current image', brightness_steps=False):
-    for i in trange(img.size[0], desc=f'Brightness tweaking for {filename}', colour='blue'):
+def tweak_image_brightness(img, result_img, pixels, filename='current image', brightness_steps=False):
+    res_pixels = result_img.load()
+    for i in trange(img.size[0], desc=f'Brightness tweaking for {filename}', colour='green'):
         for j in range(img.size[1]):
             src_color = pixels[i, j]
             fit_color = res_pixels[i, j]
@@ -90,50 +91,14 @@ def tweak_image_brightness(img, result_img, pixels, res_pixels, filename='curren
     return result_img
 
 
-def create_blur_map(img, pixels, blur_radius, blur_offset, filename='current image'):
-    blur_map = Image.new('L', img.size, 0)
-    blur_pixels = blur_map.load()
-
-    conv_filter = [
-        [-1, -1, -1],
-        [-1, 8, -1],
-        [-1, -1, -1],
-    ]
-
-    for i in trange(blur_radius, img.size[0] - blur_radius, desc=f'Blur map for {filename}', colour='blue'):
-        for j in range(blur_radius, img.size[1] - blur_radius):
-            blur_val = 0
-            blur_val += get_brightness(pixels[i - 1, j - 1]) * conv_filter[0][0]
-            blur_val += get_brightness(pixels[i - 1, j]) * conv_filter[0][1]
-            blur_val += get_brightness(pixels[i - 1, j + 1]) * conv_filter[0][2]
-            blur_val += get_brightness(pixels[i, j - 1]) * conv_filter[1][0]
-            blur_val += get_brightness(pixels[i, j]) * conv_filter[1][1]
-            blur_val += get_brightness(pixels[i, j + 1]) * conv_filter[1][2]
-            blur_val += get_brightness(pixels[i + 1, j - 1]) * conv_filter[2][0]
-            blur_val += get_brightness(pixels[i + 1, j]) * conv_filter[2][1]
-            blur_val += get_brightness(pixels[i + 1, j + 1]) * conv_filter[2][2]
-
-            if blur_val > blur_offset:
-                for oi in range(-blur_radius, blur_radius + 1):
-                    for oj in range(-blur_radius, blur_radius + 1):
-                        blur_pixels[i + oi, j + oj] = 255
-    return blur_map
-
-
-def apply_blur(img, blur_map, blur_radius):
-    blur = img.filter(ImageFilter.GaussianBlur(blur_radius))
-    img.paste(blur, mask=blur_map)
-    return img
-
-
 def match_colors(img, pixels, colors, filename='current image', quadratic_color_distance=False):
     result_img = Image.new('RGBA', img.size)
     res_pixels = result_img.load()
-    for i in trange(img.size[0], desc=f'Color matching for {filename}', colour='blue'):
+    for i in trange(img.size[0], desc=f'Color matching for {filename}', colour='green'):
         for j in range(img.size[1]):
             src_color = pixels[i, j]
             res_pixels[i, j] = get_color(src_color, colors, quadratic_color_distance=quadratic_color_distance)
-    return result_img, res_pixels
+    return result_img
 
 
 def process_image(filename,
@@ -143,7 +108,6 @@ def process_image(filename,
                   quadratic_color_distance=False,
                   blur=True,
                   blur_radius=3,
-                  blur_offset=10,
                   brightness_steps=False,
                   debug=True):
     print('=' * 20)
@@ -154,7 +118,6 @@ def process_image(filename,
     print(f'blur: {blur}')
     if blur:
         print(f'blur radius: {blur_radius}')
-        print(f'blur offset: {blur_offset}')
     print(f'brightness steps: {brightness_steps}')
     print(f'input: /{INPUT}')
     print(f'output: /{OUTPUT}')
@@ -166,20 +129,18 @@ def process_image(filename,
     img.paste(img_file)
     pixels = img.load()
 
-    result_img, res_pixels = match_colors(img, pixels, colors, filename=filename,
+    result_img = match_colors(img, pixels, colors, filename=filename,
                                           quadratic_color_distance=quadratic_color_distance)
     if debug:
         result_img.save(f'{OUTPUT}/{filename}-color_match-(1).png')
     if blur:
-        blur_map = create_blur_map(result_img, res_pixels, blur_radius=blur_radius,
-                                   blur_offset=blur_offset, filename=filename)
+        result_img = result_img.filter(ImageFilter.GaussianBlur(blur_radius))
         if debug:
-            blur_map.save(f'{OUTPUT}/{filename}-blur_map-(2).png')
-        result_img = apply_blur(result_img, blur_map, blur_radius=blur_radius)
-        if debug:
-            result_img.save(f'{OUTPUT}/{filename}-blurred_colors-(3).png')
+            result_img.save(f'{OUTPUT}/{filename}-blurred_colors-(2).png')
+
+
     if brightness_tweak:
-        result_img = tweak_image_brightness(img, result_img, pixels, res_pixels,
+        result_img = tweak_image_brightness(img, result_img, pixels,
                                             filename=filename, brightness_steps=brightness_steps)
     return result_img
 
@@ -196,7 +157,6 @@ def main():
             quadratic_color_distance=settings["quadratic_color_distance"],
             blur=settings["blur"],
             blur_radius=settings["blur_radius"],
-            blur_offset=settings["blur_offset"],
             brightness_steps=settings["brightness_steps"],
             debug=settings["debug"],
         )

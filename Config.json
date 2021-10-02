@@ -1,12 +1,11 @@
 {
   "settings": {
-    "palette": "Tokyo Night",
+    "palette": "Nord",
     "brightness_tweak": true,
     "brightness_steps": false,
     "quadratic_color_distance": false,
     "blur": true,
     "blur_radius": 3,
-    "blur_offset": 10,
     "debug": false,
     "input_dir": "Input",
     "output_dir": "Output"
