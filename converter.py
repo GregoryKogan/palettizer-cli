@@ -23,11 +23,7 @@ def load_settings():
 
 def get_filenames():
     contents = os.listdir(path="Input")
-    filenames = []
-    for item in contents:
-        if os.path.isfile(f'{INPUT}/{item}'):
-            filenames.append(item)
-    return filenames
+    return [item for item in contents if os.path.isfile(f'{INPUT}/{item}')]
 
 
 def get_color(src_color, colors, quadratic_color_distance=False):
@@ -48,9 +44,7 @@ def get_color(src_color, colors, quadratic_color_distance=False):
 
 
 def get_brightness(color):
-    alpha = 1
-    if len(color) > 3:
-        alpha = color[3] / 255
+    alpha = color[3] / 255 if len(color) > 3 else 1
     color = color[:3]
     r, g, b = color
     return (0.2126 * r + 0.7152 * g + 0.0722 * b) * alpha
