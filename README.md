@@ -1,4 +1,4 @@
-# Image-Palettizer
+# palettizer-cli
 
 Prototype of [Palettizer](https://github.com/GregoryKogan/Palettizer)
 
